@@ -8,6 +8,16 @@ from models import setup_db, Question, Category
 
 QUESTIONS_PER_PAGE = 10
 
+def paginate(request, full_list):
+    page_no = request.args.get("page", 1, type=int)
+    start = (page_no - 1) * QUESTIONS_PER_PAGE
+    end = start + QUESTIONS_PER_PAGE
+
+    temp_list = [question.format() for question in full_list]
+    questions = temp_list[start:end]
+
+    return questions
+
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__)
@@ -16,17 +26,26 @@ def create_app(test_config=None):
     """
     @TODO: Set up CORS. Allow '*' for origins. Delete the sample route after completing the TODOs
     """
-
+    CORS(app)
     """
     @TODO: Use the after_request decorator to set Access-Control-Allow
     """
-
+    @app.after_request
+    def after_request(response):
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        response.headers.add('Access-Control-Allow-Headers', 'GET, POST, PATCH, DELETE, OPTIONS')
+        return response
     """
     @TODO:
     Create an endpoint to handle GET requests
     for all available categories.
     """
-
+    @app.route('/categories')
+    def home():
+        data = Category.query.all()
+        categories_dict = {category.id: category.type for category in data}
+        print(categories_dict.keys())
+        return {"categories":categories_dict}
 
     """
     @TODO:
@@ -40,6 +59,22 @@ def create_app(test_config=None):
     ten questions per page and pagination at the bottom of the screen for three pages.
     Clicking on the page numbers should update the questions.
     """
+    @app.route('/questions',methods=["GET"])
+    def serve_questions():
+        # page = request.args.get("page", 1)
+        questions = Question.query.all()
+        total = len(questions)
+        questions = paginate(request,questions)
+        data = Category.query.all()
+        categories_dict = {category.id: category.type for category in data}
+        print(categories_dict.keys())
+        return {
+            "categories":categories_dict,
+            "total_questions": total,
+            "current_category": "History",
+            "questions": questions
+        }
+        
 
     """
     @TODO:
@@ -48,6 +83,12 @@ def create_app(test_config=None):
     TEST: When you click the trash icon next to a question, the question will be removed.
     This removal will persist in the database and when you refresh the page.
     """
+
+    @app.route("/questions/<int:id>", methods=["DELETE"])
+    def delete_question(id):
+        question = Question.query.get(int(id))
+        # question.delete()
+        return {"Success":True, "code":200, 'id': id, "question":question.format()}
 
     """
     @TODO:
@@ -59,6 +100,28 @@ def create_app(test_config=None):
     the form will clear and the question will appear at the end of the last page
     of the questions list in the "List" tab.
     """
+    @app.route("/questions", methods=["POST"])
+    def add_question_or_search():
+        data = request.get_json()
+
+        if data["searchTerm"]:
+            results = Question.query.filter(Question.question.ilike('%'+data['searchTerm']+'%'))
+            questions = [question.format() for question in results]
+            return {
+                "questions": questions,
+                "currentCategory": 'History',
+                "totalQuestions": len(questions)
+            }
+
+        else:
+            new_question = Question(
+                question=data['question'],
+                answer=data['answer'], 
+                category=data['category'],
+                difficulty= data['difficulty']
+            )
+            new_question.insert()
+            return {"success":True}
 
     """
     @TODO:
@@ -71,6 +134,9 @@ def create_app(test_config=None):
     Try using the word "title" to start.
     """
 
+    # def search_question():
+    #     return None
+
     """
     @TODO:
     Create a GET endpoint to get questions based on category.
@@ -79,6 +145,9 @@ def create_app(test_config=None):
     categories in the left column will cause only questions of that
     category to be shown.
     """
+
+    def get_category_questions():
+        return None
 
     """
     @TODO:
@@ -92,6 +161,8 @@ def create_app(test_config=None):
     and shown whether they were correct or not.
     """
 
+    def get_random_question():
+        return None
     """
     @TODO:
     Create error handlers for all expected errors
